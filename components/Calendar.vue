@@ -28,7 +28,11 @@
           <div class="calendar-day">{{ day.day }}</div>
 
           <div v-for="dayEvent in day.dayEvents" :key="dayEvent.id">
-            <div class="calendar-event" :style="`--event-bg:${dayEvent.color}`">
+            <div
+              class="calendar-event"
+              :style="`--event-bg:${dayEvent.color};width:${dayEvent.width}%`"
+              draggable="true"
+            >
               {{ dayEvent.name }}
             </div>
           </div>
@@ -92,7 +96,7 @@ export default {
       for (let week = 0; week < weekNumber; week++) {
         const weekRow = [];
         for (let day = 0; day < 7; day++) {
-          let dayEvents = this.getDayEvents(calendarDate);
+          let dayEvents = this.getDayEvents(calendarDate, day);
           weekRow.push({
             day: calendarDate.get("date"),
             month: calendarDate.format("YYYY-MM"),
@@ -104,14 +108,55 @@ export default {
       }
       return calendars;
     },
-    getDayEvents(date) {
-      return this.events.filter((event) => {
+    // getDayEvents(date) {
+    //   return this.events.filter((event) => {
+    //     let startDate = moment(event.start).format("YYYY-MM-DD");
+    //     let endDate = moment(event.end).format("YYYY-MM-DD");
+    //     let Date = date.format("YYYY-MM-DD");
+    //     if (startDate <= Date && endDate >= Date) {
+    //       return true;
+    //     }
+    //   });
+    // },
+    getDayEvents(date, day) {
+      let dayEvents = [];
+      this.sortedEvents().forEach((event) => {
         let startDate = moment(event.start).format("YYYY-MM-DD");
         let endDate = moment(event.end).format("YYYY-MM-DD");
         let Date = date.format("YYYY-MM-DD");
         if (startDate <= Date && endDate >= Date) {
-          return true;
+          if (startDate === Date) {
+            let width = this.getEventWidth(startDate, endDate, day);
+            dayEvents.push({ ...event, width });
+          } else if (day === 0) {
+            let width = this.getEventWidth(date, endDate, day);
+            dayEvents.push({ ...event, width });
+          }
         }
+      });
+      return dayEvents;
+    },
+    getEventWidth(end, start, day) {
+      console.log({ end, start, day });
+      let betweenDays = moment(start).diff(moment(end), "days");
+      console.log(betweenDays);
+      if (betweenDays > 6 - day) {
+        return (6 - day) * 100 + 95;
+      } else {
+        return betweenDays * 100 + 90;
+      }
+    },
+    sortedEvents() {
+      return this.events.slice().sort(function (a, b) {
+        let startDate = moment(a.start).format("YYYY-MM-DD");
+        let startDate_2 = moment(b.start).format("YYYY-MM-DD");
+        if (startDate < startDate_2) {
+          return -1;
+        }
+        if (startDate > startDate_2) {
+          return 1;
+        }
+        return 0;
       });
     },
   },
