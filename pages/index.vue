@@ -1,5 +1,7 @@
 <template>
-  <div>TOP PAGE</div>
+  <div>
+    <Calendar />
+  </div>
 </template>
 
 <script>
