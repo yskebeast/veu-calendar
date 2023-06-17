@@ -14,27 +14,14 @@
         </div>
       </div>
 
-      <div
-        class="calendar-weekly"
-        v-for="(week, index) in calender"
-        :key="index"
-      >
-        <div
-          class="calendar-daily"
-          :class="{ other: currentMonth !== day.month }"
-          v-for="(day, index) in week"
-          :key="index"
-        >
+      <div class="calendar-weekly" v-for="(week, i) in calender" :key="i">
+        <div class="calendar-daily" :class="{ other: currentMonth !== day.month }" v-for="(day, j) in week" :key="j">
           <div class="calendar-day">{{ day.day }}</div>
-
-          <div v-for="dayEvent in day.dayEvents" :key="dayEvent.id">
-            <div
-              class="calendar-event"
-              :style="`--event-bg:${dayEvent.color};width:${dayEvent.width}%`"
-              draggable="true"
-            >
+          <div v-for="(dayEvent, l) in day.dayEvents" :key="l">
+            <div v-if="dayEvent.width" class="calendar-event" :style="`--event-bg:${dayEvent.color};width:${dayEvent.width}%`" draggable="true">
               {{ dayEvent.name }}
             </div>
+            <div else style="height: 26px"></div>
           </div>
         </div>
       </div>
@@ -55,15 +42,19 @@ export default {
   },
   computed: {
     events: () => events,
+
     calender() {
       return this.getCalendar();
     },
+
     displayMonth() {
       return this.currentDate.format("YYYY[/]M");
     },
+
     currentMonth() {
       return this.currentDate.format("YYYY-MM");
     },
+
     sortedEvents() {
       return this.events.slice().sort(function (a, b) {
         let startDate = moment(a.start).format("YYYY-MM-DD");
@@ -79,24 +70,29 @@ export default {
       const week = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
       return week[dayIndex];
     },
+
     lastMonth() {
       this.currentDate = moment(this.currentDate).subtract(1, "month");
     },
+
     nextMonth() {
       this.currentDate = moment(this.currentDate).add(1, "month");
     },
+
     getStartDate() {
       let date = moment(this.currentDate);
       date.startOf("month");
       const weekNum = date.day();
       return date.subtract(weekNum, "days");
     },
+
     getEndDate() {
       let date = moment(this.currentDate);
       date.endOf("month");
       const weekNum = date.day();
       return date.add(6 - weekNum, "days");
     },
+
     getCalendar() {
       let calendarDate = this.getStartDate();
       const endDate = this.getEndDate();
@@ -117,100 +113,66 @@ export default {
       }
       return calendars;
     },
-    getDayEvents(date, day) {
-      let dayEvents = [];
-      this.sortedEvents.forEach((event) => {
-        let startDate = moment(event.start).format("YYYY-MM-DD");
-        let endDate = moment(event.end).format("YYYY-MM-DD");
-        let Date = date.format("YYYY-MM-DD");
-        if (startDate <= Date && endDate >= Date) {
-          if (startDate === Date) {
-            let width = this.getEventWidth(startDate, endDate, day);
-            dayEvents.push({ ...event, width });
-          } else if (day === 0) {
-            let width = this.getEventWidth(date, endDate, day);
-            dayEvents.push({ ...event, width });
-          }
-        }
-      });
-      return dayEvents;
-    },
+
     getEventWidth(end, start, day) {
-      console.log({ end, start, day });
       let betweenDays = moment(start).diff(moment(end), "days");
-      console.log(betweenDays);
       if (betweenDays > 6 - day) {
         return (6 - day) * 100 + 95;
       } else {
         return betweenDays * 100 + 90;
       }
     },
+
+    getDayEvents(date, day) {
+      let stackIndex = 0;
+      let dayEvents = [];
+      let startedEvents = [];
+      this.sortedEvents.forEach((event) => {
+        let startDate = moment(event.start).format("YYYY-MM-DD");
+        let endDate = moment(event.end).format("YYYY-MM-DD");
+        let Date = date.format("YYYY-MM-DD");
+        if (startDate <= Date && endDate >= Date) {
+          if (startDate === Date) {
+            [stackIndex, dayEvents] = this.getStackEvents(event, day, stackIndex, dayEvents, startedEvents, event.start);
+          } else if (day === 0) {
+            [stackIndex, dayEvents] = this.getStackEvents(event, day, stackIndex, dayEvents, startedEvents, Date);
+          } else {
+            startedEvents.push(event);
+          }
+        }
+      });
+      return dayEvents;
+    },
+
+    getStackEvents(event, day, stackIndex, dayEvents, startedEvents, start) {
+      [stackIndex, dayEvents] = this.getStartedEvents(stackIndex, startedEvents, dayEvents);
+      let width = this.getEventWidth(start, event.end, day);
+      Object.assign(event, {
+        stackIndex,
+      });
+      dayEvents.push({ ...event, width });
+      stackIndex++;
+      return [stackIndex, dayEvents];
+    },
+
+    getStartedEvents(stackIndex, startedEvents, dayEvents) {
+      let startedEvent;
+      do {
+        startedEvent = startedEvents.find((event) => event.stackIndex === stackIndex);
+        if (startedEvent) {
+          dayEvents.push(startedEvent); //ダミー領域として利用するため
+          stackIndex++;
+        }
+      } while (typeof startedEvent !== "undefined");
+      return [stackIndex, dayEvents];
+    },
   },
   mounted() {
-    console.log(this.getCalendar());
+    this.getCalendar();
   },
 };
 </script>
 
 <style lang="scss" scoped>
-.main {
-  --border-color: #000;
-  margin: 2em auto;
-  width: 900px;
-}
-
-.calendar-month {
-  text-align: center;
-  font-size: 2rem;
-}
-
-.button-wrap {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 1rem 0;
-}
-.button {
-  padding: 0.5rem 1rem;
-}
-
-.calendar {
-  max-width: 900px;
-  border-top: 1px solid var(--border-color);
-  font-size: 0.8em;
-}
-.calendar-weekly {
-  display: flex;
-  border-left: 1px solid var(--border-color);
-}
-.calendar-headLine {
-  flex: 1;
-  border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  margin-right: -1px;
-  text-align: center;
-  font-weight: bold;
-  font-size: 1.3rem;
-  padding: 0.5rem;
-}
-.calendar-daily {
-  flex: 1;
-  min-height: 125px;
-  border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  margin-right: -1px;
-  &.other {
-    background-color: #f7f7f7;
-  }
-}
-.calendar-day {
-  text-align: center;
-  font-weight: bold;
-  font-size: 1.2rem;
-}
-.calendar-event {
-  color: #fff;
-  padding: 0.3rem;
-  background-color: var(--event-bg);
-}
+@import "~/design/calendar";
 </style>
